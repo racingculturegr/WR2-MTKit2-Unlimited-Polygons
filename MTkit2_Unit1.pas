@@ -504,7 +504,7 @@ var
 
   LWOQty: record
     UV,DUV: array [0..MAX_PARTS] of Integer;  //DUV exceeds 65K sometimes it's ok
-    XYZ,Poly,Surf: array [1..MAX_PARTS] of Word;
+    XYZ,Poly,Surf: array [1..MAX_PARTS] of Integer;
   end;
 
   Dnode: array [1..MAX_PARTS]of TTreeNode;
@@ -707,6 +707,9 @@ procedure TForm1.FormCreate(Sender: TObject);
 var
   fname: string;
 begin
+
+
+
   fname := ParamStr(1); //Get filename parameter
   ExeDir := ExtractFilePath(Application.ExeName);
   meLog.Lines.Add(fname);
@@ -958,7 +961,7 @@ procedure TForm1.bgImportButtonClicked(Sender: TObject; Index: Integer);
 begin
   try
     case Index of
-      BG_IMPORT_3DS_MOX:  if RunOpenDialog2(odOpen, fOpenedFolder, '3DMax object files (*.3ds)|*.3ds') then
+      BG_IMPORT_3DS_MOX:  if RunOpenDialog2(odOpen, fOpenedFolder, '3DMaxMAX_MOX_VTX object files (*.3ds)|*.3ds') then
                           begin
                             Load3DS(odOpen.FileName);
                             RebuildImpNormals;
@@ -1616,7 +1619,7 @@ end;
 
 procedure TForm1.SaveMOX(const aFilename: string);
 const
-  MOX_FORMAT_HEADER: AnsiString = '!XOM'#0#0#2#2;
+  MOX_FORMAT_HEADER: AnsiString = '!XOM'#1#0#2#2;
 var
   s: AnsiString;
   i,j,k,m:Integer;
@@ -1626,6 +1629,8 @@ var
   Lev:Integer;
   lazyqty: array of Integer;
   face6: array [1..3] of Word;
+face12: array [1..3] of Cardinal;
+chunk32: TMOXChunk32;
 begin
   AssignFile(f,aFilename); rewrite(f,1);
 
@@ -1716,25 +1721,23 @@ begin
   BlockWrite(f, fMOX.Vertice, fMOX.Header.VerticeCount*40);
   for ii:=1 to fMOX.Header.PolyCount do
   begin
-    face6[1] := fMOX.Face[ii,1] - 1;
-    face6[2] := fMOX.Face[ii,2] - 1;
-    face6[3] := fMOX.Face[ii,3] - 1;
-
-    BlockWrite(f, face6, 6);
+    face12[1] := fMOX.Face[ii,1] - 1;
+face12[2] := fMOX.Face[ii,2] - 1;
+face12[3] := fMOX.Face[ii,3] - 1;
+BlockWrite(f, face12, 12);
   end;
 
   for ii:=1 to fMOX.Header.ChunkCount do
-  begin
-    BlockWrite(f,fMOX.Chunks[ii].SidA,2); BlockWrite(f,#0+#0,2);
-    BlockWrite(f,fMOX.Chunks[ii].SidB,2); BlockWrite(f,#0+#0,2);
+begin
+  chunk32.SidA := fMOX.Chunks[ii].SidA;
+  chunk32.SidB := fMOX.Chunks[ii].SidB;
+  chunk32.FirstPoly := fMOX.Chunks[ii].FirstPoly;
+  chunk32.PolyCount := fMOX.Chunks[ii].PolyCount;
+  chunk32.FirstVtx := fMOX.Chunks[ii].FirstVtx - 1;
+  chunk32.LastVtx := fMOX.Chunks[ii].LastVtx - 1;
 
-    dec(fMOX.Chunks[ii].FirstVtx); dec(fMOX.Chunks[ii].LastVtx);
-    BlockWrite(f,fMOX.Chunks[ii].FirstPoly,2); BlockWrite(f,#0+#0,2);
-    BlockWrite(f,fMOX.Chunks[ii].PolyCount,2); BlockWrite(f,#0+#0,2);
-    BlockWrite(f,fMOX.Chunks[ii].FirstVtx,2); BlockWrite(f,#0+#0,2);
-    BlockWrite(f,fMOX.Chunks[ii].LastVtx,2); BlockWrite(f,#0+#0,2);
-    inc(fMOX.Chunks[ii].FirstVtx); inc(fMOX.Chunks[ii].LastVtx);
-  end;
+  BlockWrite(f, chunk32, SizeOf(chunk32));
+end;
 
   BlockWrite(f, fMOX.MoxMat, 336*fMOX.Header.MatCount);   //4+332
 
@@ -2240,8 +2243,8 @@ begin
       APP_TITLE + '    ' + VER_INFO + eol + eol +
       'using OpenGL ' + glGetString(GL_VERSION) + ' by ' + glGetString(GL_RENDERER) + eol +
       'using GLSL version ' + glslVersion + ' with max floats ' + IntToStr(vfl) + eol + eol +
-      'Written by Krom - kromster80@gmail.com' + eol +
-      'Site - http://krom.reveur.de'),
+      'Written by racingculturegr - racingculturegr@gmail.com' + eol +
+      ''),
     'Info',
     MB_OK or MB_ICONINFORMATION);
 end;
